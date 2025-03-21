@@ -22,6 +22,7 @@ namespace buffer {
     void store_data(std::string& message_data) {
       std::lock_guard<std::mutex> guard(datalines_mutex);
       data_lines.emplace_back(message_data);
+      std::cout << "\ndata stored: " << message_data << std::endl;
     }
     
     std::vector<std::string> get_data() {

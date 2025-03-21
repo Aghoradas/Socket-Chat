@@ -1,4 +1,3 @@
-#include <ratio>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -12,6 +11,8 @@
 #include <vector>
 #include <map>
 #include <thread>
+
+#include "../include/client_buffer.hpp"
 
 int G_PORT = 8080;
 int G_HEARTBEAT_PORT = 8081;
@@ -54,9 +55,6 @@ void heartbeat_listen(int heartbeat_connection, int client_connection) {
 // to the screen.
 std::vector<std::string> message_parser(std::string &to_be_parsed) {
   std::vector<std::string> member_message;
-  // SHOULD THE to_be_parsed BECOME A MAP OR A VECTOR??
-  // Which would be more appropriate when handling multiple
-  // posters?
   std::string tdp_string = std::string(to_be_parsed);
   std::stringstream ss(tdp_string);
   std::string part;
@@ -68,21 +66,58 @@ std::vector<std::string> message_parser(std::string &to_be_parsed) {
 }
 
 
-void print_buffer(std::vector<std::map<std::string, std::string>> &buffer_line) {
+void print_buffer(receiver::Buffer& buffer_package) {
   // Each line of the buffer_line vector contains first, who posted the message,
   // then second, what was posted.
   std::cout << "==========================================" << std::endl;
-  if (buffer_line.empty()) {
+  if (buffer_package.buffer_size() == 0) {
     std::cout << "  -nothing in buffer\n";
     std::cout << "==========================================" << std::endl;
     return;
   }
-  for (const auto &line : buffer_line) {  // Iterating through maps of the vector
-    for (const auto &members : line) {  // Iterating through the members of current map
-      std::cout << members.first << " - " << members.second << std::endl;
-    }
+  for (int i = 0; i < buffer_package.buffer_size(); i++) {  // Iterating through maps of the vector
+      std::cout << " - " << buffer_package.get_buffer(i) << std::endl;
   }
   std::cout << "==========================================" << std::endl;
+}
+
+
+void receiving_from_server(int& client_socket, receiver::Buffer& buffer_package) {
+  // *** HERE - information is getting through, though its reception
+  //            is chopped and needs to be reworked and heavily perfected.data_packet
+  int bytes_data;
+  uint32_t buffer_size;
+  uint32_t total_received = 0;
+  std::vector<std::string> garbage_buffer;
+
+  // Initializing data_packet and data_str
+  char data_packet[1025] = {0};
+  memset(data_packet, 0, sizeof(data_packet));
+  std::string data_str;
+
+  while (true) {
+    buffer_size = 0;
+    memset(data_packet, 0, sizeof(data_packet));
+
+    recv(client_socket, &buffer_size, sizeof(buffer_size), 0);
+    buffer_size = ntohl(buffer_size);
+
+    for (int i = 0; i < buffer_size; i++) {
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+      uint32_t line_size = 0;
+      recv(client_socket, &line_size, sizeof(line_size), 0);
+      line_size = ntohl(line_size);
+
+      bytes_data = (recv(client_socket, data_packet, line_size, 0));
+      if (bytes_data > 0) {
+        data_packet[bytes_data] = '\0';
+        data_str = std::string(data_packet);
+
+      }
+      buffer_package.store_to_buffer(data_str);
+    }
+
+  }
 }
 
 
@@ -128,7 +163,7 @@ int main() {
     return -1;
   }
 
-  // Connect to address
+  // CLIENT CONNECT
   if (connect(client_socket, (struct sockaddr*)&server_address, sizeof(server_address)) < 0) {
     std::cerr << "-error connecting\n" << std::endl;
     return -1;
@@ -140,11 +175,11 @@ int main() {
   std::cout << "\n-connected to server and heartbeat\n";
   std::this_thread::sleep_for(std::chrono::seconds(1));
 
-  // Start heartbeat listener in a thread
-  std::thread heartbeat_thread(heartbeat_listen, heartbeat_socket, client_socket);
+  // STARTING HEARTBEAT THREAD 
+  std::thread heartbeat_thread(heartbeat_listen, heartbeat_socket, client_socket); 
   heartbeat_thread.detach();
 
-  // Send initial connection message to server
+  // SEND INITIAL CONNECTION MESSAGE TO SERVER
   const std::string message = "!username|" + client_name + "|Client connected...";
   if (send(client_socket, message.c_str(), message.length(), 0) < 0) {
     std::cerr << "-error sending INITIAL message to server\n" << std::endl;
@@ -158,30 +193,18 @@ int main() {
   memset(data_packet, 0, sizeof(data_packet));
   std::string data_str;
 
-
-
-  // Receive initial response from server
-/*  ssize_t bytes_received = recv(client_socket, data_packet, sizeof(data_packet), 0);
-  if (bytes_received > 0) {
-    data_packet[bytes_received] = '\0';
-    data_str = std::string(data_packet);
-    message_data = message_parser(data_str);
-    std::cout << "Server: " << message_data.at(1) << std::endl;
-  } else {
-    std::cerr << "-server disconnected\n" << std::endl;
-    return 0;
-  }*/
-
   // Loop communication session with server
   std::string client_input;
   std::string client_to_server;
   std::map<std::string, std::string> members;
-  std::vector<std::map<std::string, std::string>> buffer_line;
+  receiver::Buffer buffer_package;
+
+  std::thread([&](){ receiving_from_server(client_socket, buffer_package); }).detach();
 
   while(true) {
     cls();
-    
-    print_buffer(buffer_line);
+
+    print_buffer(buffer_package);
     memset(data_packet, 0, sizeof(data_packet));
     do {
       std::cout << "\nEnter message: ";
@@ -197,14 +220,9 @@ int main() {
       break;
 
     }
-    int bytes_data = (recv(client_socket, data_packet, sizeof(data_packet), 0));
-    if (bytes_data > 0) {
-      data_packet[bytes_data] = '\0';
-      data_str = std::string(data_packet);
-      message_data = message_parser(data_str);
-      members[message_data.at(0)] = std::string(message_data.at(1));
-    } 
-    buffer_line.emplace_back(members);
+
+    std::cout << "\n-end of recv function" << std::endl;
+
   }
   shutdown(client_socket, SHUT_RDWR);
   close(client_socket);

@@ -18,6 +18,7 @@
 
 #include "../include/buffer_history.hpp"
 #include "../include/server_output.hpp"
+#include "../include/server_output.hpp"
 
 int G_PORT = 8080;
 int G_HEARTBEAT = 8081;
@@ -72,19 +73,8 @@ void heart_beat_handler(int heartbeat_connection, int client_connection) {
       }
     }
   }
+  close(client_connection);
 
-}
-
-std::string get_username(int& client_connection) {
-  try {
-    char username[50];
-    recv(client_connection, username, sizeof(username), 0);
-    return std::string(username);
-  } catch (std::runtime_error &error) {
-    std::cerr << "-error setting username: " << error.what() << std::endl;
-    char username[50] = "unknown-user";
-    return std::string(username);
-  }
 }
 
 // Takes in received message from client to prepare it to the screen.
