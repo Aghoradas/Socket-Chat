@@ -89,7 +89,7 @@ std::vector<std::string> message_parser(std::string &to_be_parsed) {
 }
 
 // This will process comands for the server
-void command_menu(std::vector<std::string> check_command, int client_connection, std::string& username) {
+void command_menu(std::vector<std::string> check_command, const int client_connection, std::string& username) {
   check_command[0].erase(0, 1);
   std::cout << "\n" << check_command[0] << std::endl;
   if (check_command[0] == "username") {
@@ -100,31 +100,28 @@ void command_menu(std::vector<std::string> check_command, int client_connection,
   }
 }
 
-int handle_client(int client_connection, buffer::History& buffer_messages) {
+int handle_client(const int client_connection, buffer::History& buffer_messages) {
   std::string current_time;
-  server_time(current_time);
   char data_packet[1025];
   std::string server_to_client;
   std::vector<std::string> check_command;
-  std::mutex datalines_mutex;
   int32_t message_size;
   std::string username;
   sending::Output send_buffer;
+  std::queue<std::string> lines;
+
+
+  std::thread([&](){ send_buffer.buffer_send(client_connection, buffer_messages); }).detach();
 
   while(true) {
+    
+    server_time(current_time);
     ssize_t bytes_received;
     memset(data_packet, 0, sizeof(data_packet));
     bytes_received = recv(client_connection, data_packet, sizeof(data_packet), 0);
     data_packet[bytes_received] = '\0';
     std::string from_client(data_packet);
     buffer_messages.store_data(from_client);
-
-
-    send_buffer.buffer_send(client_connection, buffer_messages.get_data());
-    std::cout << "\n================================================" << std::endl;
-    buffer_messages.print_buffer(current_time);
-    std::cout << "================================================" << std::endl;
-
 
     // Handling any server commands from clients
     check_command = message_parser(from_client);
@@ -148,11 +145,15 @@ int handle_client(int client_connection, buffer::History& buffer_messages) {
       std::cout << "-received: " << check_command[1] << std::endl;
       server_to_client = "*Server|You sent: completed..";
       buffer_messages.store_data(server_to_client);
-      send(client_connection, server_to_client.c_str(), server_to_client.size(), 0);
     } else {
       std::cout << "-client disconnected: ";
       break;
     }
+    std::cout << "\n================================================" << std::endl;
+    buffer_messages.print_buffer(current_time);
+    std::cout << "================================================" << std::endl;
+
+
   }
   shutdown(client_connection, SHUT_RDWR);
   close(client_connection);
@@ -166,14 +167,14 @@ int main() {
   int attempts;
 
   // Creating normal socket
-  int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+  const int server_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (server_fd < 0) {
     std::cerr << "-error openning socket" << std::endl;
     return -1;
   }
 
   // Creating heartbeat socket
-  int heartbeat_fd = socket(AF_INET, SOCK_STREAM, 0);
+  const int heartbeat_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (heartbeat_fd < 0) {
     std::cerr << "-error openning socket" << std::endl;
     return -1;

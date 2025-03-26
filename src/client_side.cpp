@@ -9,7 +9,6 @@
 #include <sstream>
 #include <iostream>
 #include <vector>
-#include <map>
 #include <thread>
 
 #include "../include/client_buffer.hpp"
@@ -24,7 +23,7 @@ void cls() {
 
 
 // Listens for a heartbeat connection from server
-void heartbeat_listen(int heartbeat_connection, int client_connection) {
+void heartbeat_listen(const int heartbeat_connection, const int client_connection) {
   char buffer[10];
   int time_out = 0;
   while(true) {
@@ -82,41 +81,43 @@ void print_buffer(receiver::Buffer& buffer_package) {
 }
 
 
-void receiving_from_server(int& client_socket, receiver::Buffer& buffer_package) {
+void receiving_from_server(const int& client_socket, const std::string& message, receiver::Buffer& buffer_package) {
+  printf("\n-receiving_from_server: started...\n");
   // *** HERE - information is getting through, though its reception
   //            is chopped and needs to be reworked and heavily perfected.data_packet
-  int bytes_data;
-  uint32_t buffer_size;
-  uint32_t total_received = 0;
-  std::vector<std::string> garbage_buffer;
+
+
+  // SEND INITIAL CONNECTION MESSAGE TO SERVER
+  if (send(client_socket, message.c_str(), message.length(), 0) < 0) {
+    std::cerr << "-error sending INITIAL message to server\n" << std::endl;
+    return;
+  }
+  std::cout << "\n-connection accepted" << std::endl;
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  int total_received = 0;
 
   // Initializing data_packet and data_str
-  char data_packet[1025] = {0};
+  char data_packet[1025];
   memset(data_packet, 0, sizeof(data_packet));
   std::string data_str;
+  uint32_t buffer_size;
+  uint32_t bytes_data;
 
   while (true) {
     buffer_size = 0;
+    bytes_data = 0;
     memset(data_packet, 0, sizeof(data_packet));
-
     recv(client_socket, &buffer_size, sizeof(buffer_size), 0);
     buffer_size = ntohl(buffer_size);
-
-    for (int i = 0; i < buffer_size; i++) {
-      std::this_thread::sleep_for(std::chrono::seconds(1));
-      uint32_t line_size = 0;
-      recv(client_socket, &line_size, sizeof(line_size), 0);
-      line_size = ntohl(line_size);
-
-      bytes_data = (recv(client_socket, data_packet, line_size, 0));
+    while (bytes_data < buffer_size) {
+      bytes_data = (recv(client_socket, data_packet, sizeof(data_packet), 0));
       if (bytes_data > 0) {
         data_packet[bytes_data] = '\0';
+
         data_str = std::string(data_packet);
-
+        buffer_package.store_to_buffer(data_str);
       }
-      buffer_package.store_to_buffer(data_str);
     }
-
   }
 }
 
@@ -175,42 +176,31 @@ int main() {
   std::cout << "\n-connected to server and heartbeat\n";
   std::this_thread::sleep_for(std::chrono::seconds(1));
 
-  // STARTING HEARTBEAT THREAD 
-  std::thread heartbeat_thread(heartbeat_listen, heartbeat_socket, client_socket); 
+  // STARTING HEARTBEAT THREAD
+  std::thread heartbeat_thread(heartbeat_listen, heartbeat_socket, client_socket);
   heartbeat_thread.detach();
 
-  // SEND INITIAL CONNECTION MESSAGE TO SERVER
+  // Loop communication session with server
+  std::string client_input;
+  std::string client_to_server;
+  receiver::Buffer buffer_package;
   const std::string message = "!username|" + client_name + "|Client connected...";
-  if (send(client_socket, message.c_str(), message.length(), 0) < 0) {
-    std::cerr << "-error sending INITIAL message to server\n" << std::endl;
-    return -1;
-  }
-  std::cout << "\n-connection accepted" << std::endl;
-  std::this_thread::sleep_for(std::chrono::seconds(1));
+  std::thread([&](){ receiving_from_server(client_socket, message, buffer_package); }).detach();
 
   // Initializing data_packet and data_str
   char data_packet[1025] = {0};
   memset(data_packet, 0, sizeof(data_packet));
   std::string data_str;
 
-  // Loop communication session with server
-  std::string client_input;
-  std::string client_to_server;
-  std::map<std::string, std::string> members;
-  receiver::Buffer buffer_package;
-
-  std::thread([&](){ receiving_from_server(client_socket, buffer_package); }).detach();
-
+  
   while(true) {
     cls();
-
+    std::this_thread::sleep_for(std::chrono::seconds(1));
     print_buffer(buffer_package);
-    memset(data_packet, 0, sizeof(data_packet));
     do {
       std::cout << "\nEnter message: ";
       std::getline(std::cin, client_input);
     } while (client_input.size() == 0);
-    members[client_name] = client_input;
     client_to_server = "*" + client_name + "|" + client_input;
     if (send(client_socket, client_to_server.c_str(), client_to_server.size(), 0) < 0) {
           std::cerr << "-error sending message to server" << std::endl;

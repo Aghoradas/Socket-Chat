@@ -3,31 +3,33 @@
 
 #include <iostream>
 #include <string>
-#include <vector>
 #include <netinet/in.h>
+
+#include "buffer_history.hpp"
 
 namespace sending {
   class Output {
   public:
     int bytes_sent;
-    char* data_packet;
-    std::string end_packet = "...";
-    uint32_t line_size;
+    std::string data_packet;
 
-    void buffer_send(int client_connection, std::vector<std::string> buffer_messages) {
-      uint32_t buffer_size = htonl(buffer_messages.size());
-      send(client_connection, &buffer_size, sizeof(buffer_size), 0);
-      for (const std::string& line : buffer_messages) {
-        line_size = htonl(line.size());
-        send(client_connection, &line_size, sizeof(line_size), 0);
-        bytes_sent = send(client_connection, line.c_str(), line.size(), 0);
-        if (bytes_sent <= 0) {
-          std::cerr << "-error sending data: " << line.data() << std::endl;
+    void buffer_send(const int& client_connection, buffer::History& buffer_messages) {
+      printf("\n-buffer_send has started...\n");
+      while (true) {
+        if (buffer_messages.queue_size() > 0) {
+
+          bytes_sent = 0;
+          data_packet = buffer_messages.get_data();
+          uint32_t size = data_packet.length();
+          size = htonl(size);
+          send(client_connection, &size, sizeof(size), 0);
+          bytes_sent = send(client_connection, data_packet.c_str(), data_packet.length(), 0);
+          if (bytes_sent < 0) {
+            std::cerr << "-error sending data: " << data_packet << std::endl;
+          }
         }
       }
-
-      send(client_connection, end_packet.c_str(), end_packet.size(), 0);
     }
   };
 }
-#endif 
+#endif
