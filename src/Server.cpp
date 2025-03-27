@@ -14,7 +14,6 @@
 #include <vector>
 #include <sstream>
 #include <thread>
-#include <mutex>
 
 #include "../include/buffer_history.hpp"
 #include "../include/server_output.hpp"

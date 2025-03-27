@@ -113,7 +113,6 @@ void receiving_from_server(const int& client_socket, const std::string& message,
       bytes_data = (recv(client_socket, data_packet, sizeof(data_packet), 0));
       if (bytes_data > 0) {
         data_packet[bytes_data] = '\0';
-
         data_str = std::string(data_packet);
         buffer_package.store_to_buffer(data_str);
       }
@@ -195,7 +194,6 @@ int main() {
   
   while(true) {
     cls();
-    std::this_thread::sleep_for(std::chrono::seconds(1));
     print_buffer(buffer_package);
     do {
       std::cout << "\nEnter message: ";
@@ -210,9 +208,6 @@ int main() {
       break;
 
     }
-
-    std::cout << "\n-end of recv function" << std::endl;
-
   }
   shutdown(client_socket, SHUT_RDWR);
   close(client_socket);

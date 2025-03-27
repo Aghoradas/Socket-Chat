@@ -10,7 +10,7 @@
 namespace sending {
   class Output {
   public:
-    int bytes_sent;
+    uint32_t bytes_sent;
     std::string data_packet;
 
     void buffer_send(const int& client_connection, buffer::History& buffer_messages) {
@@ -23,9 +23,12 @@ namespace sending {
           uint32_t size = data_packet.length();
           size = htonl(size);
           send(client_connection, &size, sizeof(size), 0);
-          bytes_sent = send(client_connection, data_packet.c_str(), data_packet.length(), 0);
-          if (bytes_sent < 0) {
-            std::cerr << "-error sending data: " << data_packet << std::endl;
+          size = ntohl(size);
+          while (bytes_sent < size) {
+            bytes_sent = send(client_connection, data_packet.c_str(), data_packet.length(), 0);
+            if (bytes_sent < 0) {
+              std::cerr << "-error sending data: " << data_packet << std::endl;
+            }
           }
         }
       }
