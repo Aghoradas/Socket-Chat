@@ -15,14 +15,15 @@
 #include <sstream>
 #include <thread>
 
+std::vector<int> G_HEARTBEAT_CLIENTS;
+std::vector<int> G_CLIENTS;
+
 #include "../include/buffer_history.hpp"
 #include "../include/server_output.hpp"
 #include "../include/server_output.hpp"
 
 int G_PORT = 8080;
 int G_HEARTBEAT = 8081;
-std::vector<int> G_HEARTBEAT_CLIENTS;
-std::vector<int> G_CLIENTS;
 const char G_GREET[50] = "Welcone to server.. '!close' to close connection.";
 
 void cls() {
@@ -68,11 +69,11 @@ void heart_beat_handler(int heartbeat_connection, int client_connection) {
       if (strncmp(buffer, "PONG", 4) != 0) {
         std::cerr << "\n-No PONG received, closing connection to: " << client_connection <<std::endl;
         close(heartbeat_connection);
+        close(client_connection);
         break;
       }
     }
   }
-  close(client_connection);
 
 }
 
@@ -100,29 +101,30 @@ void command_menu(std::vector<std::string> check_command, const int client_conne
 }
 
 int handle_client(const int client_connection, buffer::History& buffer_messages) {
-  std::string current_time;
-  char data_packet[1025];
-  std::string server_to_client;
-  std::vector<std::string> check_command;
-  int32_t message_size;
-  std::string username;
-  sending::Output send_buffer;
-  std::queue<std::string> lines;
+  std::string               current_time;
+  std::string               server_to_client;
+  std::vector<std::string>  check_command;
+  std::string               username;
+  sending::Output           send_buffer;
+  std::queue<std::string>   lines;
+  char                      data_packet[1025];
 
 
-  std::thread([&](){ send_buffer.buffer_send(client_connection, buffer_messages); }).detach();
+  std::thread([&](){ send_buffer.buffer_send(buffer_messages); }).detach();
 
   while(true) {
-    
     server_time(current_time);
-    ssize_t bytes_received;
     memset(data_packet, 0, sizeof(data_packet));
-    bytes_received = recv(client_connection, data_packet, sizeof(data_packet), 0);
+
+    ssize_t bytes_received = recv(client_connection, data_packet, sizeof(data_packet), 0);
     data_packet[bytes_received] = '\0';
     std::string from_client(data_packet);
     buffer_messages.store_data(from_client);
 
-    // Handling any server commands from clients
+    // HANDLING ANY SERVER COMMANDS FROM CLIENTS
+    // The server will evaluate and execute commands from clients
+    // separate from the main chat. Only server and that client
+    // will see submitted commands and command interactions.
     check_command = message_parser(from_client);
     if (check_command.size() > 2) {
       std::cout << std::endl;
@@ -137,7 +139,7 @@ int handle_client(const int client_connection, buffer::History& buffer_messages)
       command_menu(check_command, client_connection, username);
     }
 
-    if (bytes_received > 0 && std::string(data_packet) == "Client connected...") {
+    if (bytes_received > 0 && check_command[1] == "Client connected...") {
       send(client_connection, G_GREET, sizeof(G_GREET) - 1, 0);
     } else if (bytes_received > 0) {
       data_packet[bytes_received] = '\0';
