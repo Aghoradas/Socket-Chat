@@ -18,13 +18,15 @@
 std::vector<int> G_HEARTBEAT_CLIENTS;
 std::vector<int> G_CLIENTS;
 
+// Setting these includes after global vectors
+// so they have easy access to them.
 #include "../include/buffer_history.hpp"
 #include "../include/server_output.hpp"
 #include "../include/server_output.hpp"
 
-int G_PORT = 8080;
-int G_HEARTBEAT = 8081;
-const char G_GREET[50] = "Welcone to server.. '!close' to close connection.";
+const int   G_PORT = 8080;
+const int   G_HEARTBEAT = 8081;
+const char  G_GREET[50] = "Welcone to server.. '!close' to close connection.";
 
 void cls() {
   system("clear");
@@ -61,10 +63,9 @@ void heartbeat_pulse() {
 // Sends a PING message to client
 void heart_beat_handler(int heartbeat_connection, int client_connection) {
   while(true) {
-
     char buffer[10] = {0};
-    int bytes_received = recv(heartbeat_connection, buffer, sizeof(buffer), MSG_DONTWAIT);
 
+    int bytes_received = recv(heartbeat_connection, buffer, sizeof(buffer), MSG_DONTWAIT);
     if (bytes_received == 0) {
       if (strncmp(buffer, "PONG", 4) != 0) {
         std::cerr << "\n-No PONG received, closing connection to: " << client_connection <<std::endl;
@@ -79,9 +80,10 @@ void heart_beat_handler(int heartbeat_connection, int client_connection) {
 
 // Takes in received message from client to prepare it to the screen.
 std::vector<std::string> message_parser(std::string &to_be_parsed) {
-  std::vector<std::string> member_message;
-  std::stringstream ss(to_be_parsed);
-  std::string part;
+  std::vector<std::string>  member_message;
+  std::stringstream         ss(to_be_parsed);
+  std::string               part;
+
   while (std::getline(ss, part, '|')) {
     member_message.emplace_back(part);
   }
@@ -105,12 +107,8 @@ int handle_client(const int client_connection, buffer::History& buffer_messages)
   std::string               server_to_client;
   std::vector<std::string>  check_command;
   std::string               username;
-  sending::Output           send_buffer;
   std::queue<std::string>   lines;
   char                      data_packet[1025];
-
-
-  std::thread([&](){ send_buffer.buffer_send(buffer_messages); }).detach();
 
   while(true) {
     server_time(current_time);
@@ -165,7 +163,6 @@ int handle_client(const int client_connection, buffer::History& buffer_messages)
 
 int main() {
   cls();
-  int attempts;
 
   // Creating normal socket
   const int server_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -222,14 +219,17 @@ int main() {
   std::cout << "-listening to port: " << ntohs(server_address.sin_port) << std::endl;
   std::cout << "-listening to port: " << ntohs(heartbeat_address.sin_port) << std::endl;
 
-  struct sockaddr_in client_address;
-  socklen_t client_address_length = sizeof(client_address);
 
   std::thread heart(heartbeat_pulse);
   heart.detach();
 
-  std::string current_time;
-  buffer::History buffer_messages;
+  struct sockaddr_in  client_address;
+  socklen_t           client_address_length = sizeof(client_address);
+  std::string         current_time;
+  buffer::History     buffer_messages;
+  sending::Output     send_buffer;
+
+  std::thread([&](){ send_buffer.buffer_send(buffer_messages); }).detach();
 
   while(true) {
 
