@@ -142,8 +142,6 @@ int handle_client(const int client_connection, buffer::History& buffer_messages)
     } else if (bytes_received > 0) {
       data_packet[bytes_received] = '\0';
       std::cout << "-received: " << check_command[1] << std::endl;
-      server_to_client = "*Server|You sent: completed..";
-      buffer_messages.store_data(server_to_client);
     } else {
       std::cout << "-client disconnected: ";
       break;

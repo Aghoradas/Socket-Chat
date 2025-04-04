@@ -60,7 +60,6 @@ std::vector<std::string> message_parser(std::string &to_be_parsed) {
   while (std::getline(ss, part, '|')) {
     member_message.emplace_back(part);
   }
-
   return member_message;
 }
 
@@ -124,12 +123,12 @@ void receiving_from_server(const int& client_socket, const std::string& message,
 int main() {
   cls();
   std::string client_name;
+  std::vector<std::string> message_data;
   std::cout << "      Chat Client" << std::endl;
   std::cout << "-----------------------" << std::endl;
   std::cout << "username: ";
   getline(std::cin, client_name);
 
-  std::vector<std::string> message_data;
 
   // Creating sockets
   int client_socket = socket(AF_INET, SOCK_STREAM, 0);
