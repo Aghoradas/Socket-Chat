@@ -4,6 +4,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <ncurses.h>
 
 #include <cstring>
 #include <sstream>
@@ -82,9 +83,6 @@ void print_buffer(receiver::Buffer& buffer_package) {
 
 void receiving_from_server(const int& client_socket, const std::string& message, receiver::Buffer& buffer_package) {
   printf("\n-receiving_from_server: started...\n");
-  // *** HERE - information is getting through, though its reception
-  //            is chopped and needs to be reworked and heavily perfected.data_packet
-
 
   // SEND INITIAL CONNECTION MESSAGE TO SERVER
   if (send(client_socket, message.c_str(), message.length(), 0) < 0) {
@@ -178,14 +176,14 @@ int main() {
   std::thread heartbeat_thread(heartbeat_listen, heartbeat_socket, client_socket);
   heartbeat_thread.detach();
 
-  // Loop communication session with server
+  // LOOP COMMUNICATION SESSION WITH SERVER
   std::string client_input;
   std::string client_to_server;
   receiver::Buffer buffer_package;
   const std::string message = "!username|" + client_name + "|Client connected...";
   std::thread([&](){ receiving_from_server(client_socket, message, buffer_package); }).detach();
 
-  // Initializing data_packet and data_str
+  // INITIALIZING DATA PACKET AND DATA_STR
   char data_packet[1025] = {0};
   memset(data_packet, 0, sizeof(data_packet));
   std::string data_str;

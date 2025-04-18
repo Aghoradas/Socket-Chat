@@ -19,21 +19,19 @@ namespace sending {
         if (buffer_messages.queue_size() > 0) {
           data_packet = buffer_messages.get_data();
           uint32_t size = data_packet.length();
-          for (const int client_connection : G_CLIENTS) {
+          for (int client_connection : G_CLIENTS) {
             bytes_sent = 0;
             size = htonl(size);
             send(client_connection, &size, sizeof(size), 0);
             size = ntohl(size);
-            while (bytes_sent < size) {
-              bytes_sent = send(client_connection, data_packet.c_str(), data_packet.length(), 0);
-              if (bytes_sent < 0) {
-                std::cerr << "-error sending data: " << data_packet << std::endl;
-              }
+            bytes_sent = send(client_connection, data_packet.c_str(), data_packet.length(), 0);
+            if (bytes_sent < 0) {
+              std::cerr << "-error sending data: " << data_packet << std::endl;
             }
           }
-        }
       }
     }
+  }
   };
 }
 #endif
