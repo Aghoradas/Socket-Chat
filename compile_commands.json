@@ -1,0 +1,8 @@
+[
+{
+  "directory": "/home/aghoradas/Progs/Networking-C++",
+  "command": "/usr/bin/c++ -DWXUSINGDLL -D_FILE_OFFSET_BITS=64 -D__WXGTK3__ -D__WXGTK__ -isystem /usr/local/lib/wx/include/gtk3-unicode-3.2 -isystem /usr/local/include/wx-3.2 -std=gnu++17   WXUSINGDLL __WXGTK3__ __WXGTK__ _FILE_OFFSET_BITS=64 -o CMakeFiles/ChatServer.dir/src/Server.cpp.o -c /home/aghoradas/Progs/Networking-C++/src/Server.cpp",
+  "file": "/home/aghoradas/Progs/Networking-C++/src/Server.cpp",
+  "output": "CMakeFiles/ChatServer.dir/src/Server.cpp.o"
+}
+]
