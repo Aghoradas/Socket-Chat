@@ -17,15 +17,15 @@ FEATURES
 
 TECHNOLOGIES USED
 
-Languages: C++
-Libraries:
-    For GUI: WxWidgets
-    For Sockets: Basic C/C++ libraries
-Protocols: TCP/IP (for network communication)
-Tools:
-    Makefile, CMake, GNU C++ Compiler Collection
-    Terminal/Command Line for testing
-Operating Systems: Linux
+ *  Languages: C++
+ *  Libraries:
+    	For GUI: WxWidgets
+    	For Sockets: Basic C/C++ libraries
+ *  Protocols: TCP/IP (for network communication)
+ *  Tools:
+    	Makefile, CMake, GNU C++ Compiler Collection
+    	Terminal/Command Line for testing
+ *  Operating Systems: Linux
 
 
 LIMITATIONS
