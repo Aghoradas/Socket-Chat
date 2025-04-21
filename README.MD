@@ -1,10 +1,9 @@
-SOCKET-CHAT (CHUI-FACE)
+SOCKET-CHAT (CHUI-FACE) - 
   A real-time chat application built using C++, socket programming, and a Client-GUI. This project demonstrates
   the client-server architecture, network protocols, and real-time communication with an easy-to-use graphical interface.
 
   Users can connect to the server, send and receive messages instantly, and interact with a user-friendly GUI
-  that makes communication seamless.imple chat program in development in order to learn about socket programing, the 
-  basics of network programing, and C++ in general.
+  that makes communication seamless.
 
 
 FEATURES
