@@ -1,4 +1,6 @@
-SOCKET-CHAT (CHUI-FACE) - 
+# Socket-Chat
+
+SOCKET-CHAT (CHUI-FACE): 
   A real-time chat application built using C++, socket programming, and a Client-GUI. This project demonstrates
   the client-server architecture, network protocols, and real-time communication with an easy-to-use graphical interface.
 
@@ -6,7 +8,7 @@ SOCKET-CHAT (CHUI-FACE) -
   that makes communication seamless.
 
 
-FEATURES
+FEATURES:
 
  *  Real-Time Messaging: Clients can send and receive messages instantly over a network.
  *  Multi-Client Support: Multiple clients can connect to the server simultaneously and chat with each other.
@@ -15,7 +17,7 @@ FEATURES
  *  Server Support: The server can handle multiple connected clients, broadcasting messages to all active participants in real-time.
 
 
-TECHNOLOGIES USED
+TECHNOLOGIES USED:
 
  *  Languages: C++
  *  Libraries:
@@ -28,7 +30,7 @@ TECHNOLOGIES USED
  *  Operating Systems: Linux
 
 
-LIMITATIONS
+LIMITATIONS:
 
  *  No Encryption: The communication between the client and server is not encrypted. For secure communication, consider
       implementing SSL/TLS encryption.
@@ -38,7 +40,7 @@ LIMITATIONS
       localhost. For remote communication, additional setup would be required, such as handling NAT and public IPs.
 
 
-FUTURE IMPROVEMENTS
+FUTURE IMPROVEMENTS:
 
  *  Private Messaging: Allow users to send messages directly to individual clients.
  *  Message History: Implement a feature to view past messages in the chat.
@@ -46,7 +48,7 @@ FUTURE IMPROVEMENTS
  *  Enhanced GUI: Develop a more feature-rich GUI with custom themes, emojis, and better message formatting.
 
 
-CONTRIBUTING
-    Contributions are welcome! If you want to help improve the project, feel free to open an issue or submit a pull
+CONTRIBUTING:
+ *  Contributions are welcome! If you want to help improve the project, feel free to open an issue or submit a pull
     request. Suggestions for new features or improvements are always appreciated.
-# Socket-Chat
+
