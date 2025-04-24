@@ -1,8 +1,7 @@
-/*
+/******************************************
  * CHUI-FACE
  *
  * This is the version UI equipped client
- * 
  ******************************************/
 
 #include <chrono>
@@ -14,8 +13,6 @@
 #include <netdb.h>
 #include <unistd.h>
 
-#include <wx/event.h>
-#include <wx/textctrl.h>
 #include <wx/wx.h>
 #include <wx/gbsizer.h>
 
@@ -62,6 +59,24 @@ void heartbeat_listen(const int heartbeat_connection, const int client_connectio
 
 
 
+/* LOGINUSERNAME CLASS
+*************************/
+class LoginUsername : public wxFrame {
+private:
+
+public:
+  LoginUsername(wxFrame* parent);
+  wxTextCtrl* user_input;
+  std::string username;
+
+  void get_username(wxCommandEvent& event) {
+    username = user_input->GetValue();
+  }
+}; // LoginUsername class
+
+
+
+
 /* CLIENTAPP CLASS
  *******************/
 class ClientApp : public wxApp {
@@ -70,8 +85,9 @@ public:
 };
 
 
+
 /* MAINFRAME CLASS
- *******************/
+*********************/
 class MainFrame : public wxFrame {
 private:
   DECLARE_EVENT_TABLE();
@@ -80,18 +96,37 @@ private:
 
 public:
   MainFrame(std::string& init_username);
-  buf client_buffer;
-  wxListBox* chat_screen;
+  buf         client_buffer;
+  wxListBox*  chat_screen;
   wxTextCtrl* user_input;
+  wxTextCtrl* edit_username;
   std::string username = "someone";
   std::string new_line;
+
   void close_window(wxCommandEvent& event);
   void create_socket_connection(wxCommandEvent& event);
+  void disconnect_connection(wxCommandEvent& event);
   void submit_chat(wxCommandEvent& event);
-  ~MainFrame() {
-    
-  }
   
+  ~MainFrame() {
+    delete chat_screen;
+    delete user_input; 
+  }
+
+  void get_username(wxCommandEvent& event) {
+    username = edit_username->GetValue();
+  }
+
+
+  // EDIT LOGIN
+  void edit_login(wxCommandEvent& event) {
+    /*
+    LoginUsername* login = new LoginUsername(this);
+    login->Show();
+    */
+    return;
+  }
+
 
   // REFRESH CHAT
   void refresh_chat() {
@@ -124,17 +159,17 @@ public:
     
 
     // data_packet and data_str
-    char data_packet[1025];
-    memset(data_packet, 0, sizeof(data_packet));
+    char        data_packet[1025];
     std::string data_str;
-    uint32_t buffer_size;
-    uint32_t bytes_data;
+    uint32_t    buffer_size;
+    uint32_t    bytes_data;
+
+    memset(data_packet, 0, sizeof(data_packet));
 
     chat_screen->Clear();
     while (client_socket > 0) {
-      std::this_thread::sleep_for(std::chrono::seconds(1));
       buffer_size = 0;
-      bytes_data = 0;
+      bytes_data  = 0;
       memset(data_packet, 0, sizeof(data_packet));
       while (buffer_size == 0) {
         recv(client_socket, &buffer_size, sizeof(buffer_size), 0);
@@ -165,17 +200,21 @@ public:
     wxLogMessage("Connected");
   }
 
-};
+}; // MainFrame class
 
 
-const int FILE_QUIT = wxID_EXIT;
-const int LISTBOX   = 101;
-const int BUTTON_ID = 102;
-const int CONNECT   = 103;
+const int FILE_QUIT  = wxID_EXIT;
+const int USERNAME   = 100;
+const int LISTBOX    = 101;
+const int BUTTON_ID  = 102;
+const int CONNECT    = 103;
+const int DISCONNECT = 104;
  
 BEGIN_EVENT_TABLE(MainFrame, wxFrame)
   EVT_MENU(FILE_QUIT, MainFrame::close_window)
+  EVT_MENU(USERNAME, MainFrame::edit_login)
   EVT_MENU(CONNECT, MainFrame::create_socket_connection)
+  EVT_MENU(DISCONNECT, MainFrame::disconnect_connection)
 END_EVENT_TABLE()
 
 
@@ -231,7 +270,18 @@ void MainFrame::create_socket_connection(wxCommandEvent& event) {
   std::cout << "\n-heartbeat connected\n";
 
   start_threads();
+
+} // create-socket-connection
+
+
+/* DISCONNECT
+ **************/
+void MainFrame::disconnect_connection (wxCommandEvent& event) {
+  chat_screen->Append("-Disconnecting...");
+  std::string close_connect = "*" + MainFrame::username + "|!close";
+  send(client_socket, close_connect.c_str(), close_connect.size(), 0);
 }
+
 
 
 /* MAGIC SPELL
@@ -252,6 +302,7 @@ bool ClientApp::OnInit() {
   std::cout << "Username: ";
   std::string init_username;
   std::getline(std::cin, init_username);
+
   MainFrame* main_window = new MainFrame(init_username);
   main_window->Show();
   return true;
@@ -269,9 +320,15 @@ MainFrame::MainFrame(std::string& init_username) : wxFrame(NULL, wxID_ANY, "CHUI
   wxMenuBar* menu_bar = new wxMenuBar();
   wxMenu* file_menu = new wxMenu();
 
+  file_menu->Append(USERNAME,
+      wxT("&Edit Username\tAlt-u"),
+      _T("Updates username"));
   file_menu->Append(CONNECT,
-      wxT("&Connect to server\tAlt-c"),
+      wxT("&Connect\tAlt-c"),
       _T("Connects to server"));
+  file_menu->Append(DISCONNECT,
+      wxT("&Disconnect\tAlt-d"),
+      _T("Disconnects from server"));
   file_menu->Append(FILE_QUIT,
       wxT("E&xit\tAlt-x"),
       _T("Quits the program"));
@@ -285,7 +342,7 @@ MainFrame::MainFrame(std::string& init_username) : wxFrame(NULL, wxID_ANY, "CHUI
                               wxSize(820,450));
    
   
-  user_input = new wxTextCtrl(panel, wxID_ANY,"message",
+  user_input = new wxTextCtrl(panel, wxID_ANY, "message",
                               wxDefaultPosition,
                               wxSize(700,35), wxTE_PROCESS_ENTER);
   user_input->Bind(wxEVT_TEXT_ENTER, &MainFrame::submit_chat, this);
@@ -313,6 +370,30 @@ MainFrame::MainFrame(std::string& init_username) : wxFrame(NULL, wxID_ANY, "CHUI
 
 
 
+/* LOGIN USERNAME
+ ******************
+LoginUsername::LoginUsername(wxFrame* parent) : wxFrame(parent, wxID_ANY, "Login") {
+    wxPanel* panel = new wxPanel(this);
+    user_input = new wxTextCtrl(panel, wxID_ANY, "username",
+                                wxDefaultPosition,
+                                wxDefaultSize, wxTE_PROCESS_ENTER);
+    user_input->Bind(wxEVT_TEXT_ENTER, &MainFrame::get_username, this);
+    wxButton* login_button = new wxButton(panel, wxID_ANY, "Submit",
+                                wxDefaultPosition,
+                                wxSize(60, 35));
+    login_button->Bind(wxEVT_BUTTON, &MainFrame::get_username, this);
+
+    wxGridSizer* box = new wxGridSizer(1);
+    box->Add(user_input);
+    box->Add(login_button);
+
+    panel->SetSizer(box);
+    this->SetSize(150,200);
+}*/
+  
+
+
+
 /* SUBMIT CHAT
  ***************/
 void MainFrame::submit_chat(wxCommandEvent& event) {
@@ -334,5 +415,10 @@ void MainFrame::close_window(wxCommandEvent& evt) {
   chat_screen->Append("-Disconnecting...");
   std::string close_connect = "*" + MainFrame::username + "|!close";
   send(client_socket, close_connect.c_str(), close_connect.size(), 0);
+  close(heartbeat_socket);
+  // Client needs to sleep here, in order to ensure that Server-Side
+  // has time to properly close client's sockets and remove the
+  // client from client-collection.
+  std::this_thread::sleep_for(std::chrono::seconds(2));
   Close(true);
 }

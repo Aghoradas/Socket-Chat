@@ -14,9 +14,12 @@
 #include <vector>
 #include <sstream>
 #include <thread>
+#include <memory>
 
-std::vector<int> G_HEARTBEAT_CLIENTS;
-std::vector<int> G_CLIENTS;
+#include "../include/client_identity.hpp"
+#include "../include/client_collection.hpp"
+
+ClientCollection G_CLIENTS;
 
 // Setting these includes after global vectors
 // so they have easy access to them.
@@ -50,28 +53,19 @@ void server_time(std::string& current_time) {
 void heartbeat_pulse() {
   while (true) {
     const char* ping_message = "PING";
-    for (int& socket : G_HEARTBEAT_CLIENTS) {
-      send(socket, ping_message, strlen(ping_message), 0);
-    }
-  }
-}
+    for (auto& socket : G_CLIENTS.get_clients()) {
+      send(socket.beat_connect(), ping_message, strlen(ping_message), 0);
 
-// Sends a PING message to client
-void heart_beat_handler(int heartbeat_connection, int client_connection) {
-  while(true) {
-    char buffer[10] = {0};
+      char buffer[10] = {0};
 
-    int bytes_received = recv(heartbeat_connection, buffer, sizeof(buffer), MSG_DONTWAIT);
-    if (bytes_received == 0) {
-      if (strncmp(buffer, "PONG", 4) != 0) {
-        std::cerr << "\n-No PONG received, closing connection to: " << client_connection <<std::endl;
-        break;
+      if (recv(socket.beat_connect(), buffer, sizeof(buffer), MSG_DONTWAIT) == 0) {
+        std::cerr << "\n-No PONG received, closing connection to: " << socket.connection() <<std::endl;
+        shutdown(socket.connection(), SHUT_RDWR);
+        close(socket.connection());
+        close(socket.beat_connect());
       }
     }
   }
-  shutdown(client_connection, SHUT_RDWR);
-  close(client_connection);
-
 }
 
 // Takes in received message from client to prepare it to the screen.
@@ -87,18 +81,18 @@ std::vector<std::string> message_parser(std::string &to_be_parsed) {
 }
 
 // This will process comands for the server
-void command_menu(std::vector<std::string> check_command, const int client_connection, std::string& username) {
+void command_menu(std::vector<std::string> check_command, defined::ClientIdentity& client) {
   check_command[0].erase(0, 1);
   std::cout << "\n" << check_command[0] << std::endl;
   if (check_command[0] == "username") {
     std::cout << "something" << std::endl;
-    username = check_command[1];
+    client.get_username(check_command[1]);
   } else {
     std::cout << "-something went wrong" << std::endl;
   }
 }
 
-int handle_client(const int heartbeat_connection, const int client_connection, buffer::History& buffer_messages) {
+int handle_client(defined::ClientIdentity& client, buffer::History& buffer_messages) {
   std::string               current_time;
   std::string               server_to_client;
   std::vector<std::string>  check_command;
@@ -109,7 +103,7 @@ int handle_client(const int heartbeat_connection, const int client_connection, b
   while(true) {
     server_time(current_time);
     memset(data_packet, 0, sizeof(data_packet));
-    ssize_t bytes_received = recv(client_connection, data_packet, sizeof(data_packet), 0);
+    ssize_t bytes_received = recv(client.connection(), data_packet, sizeof(data_packet), 0);
     data_packet[bytes_received] = '\0';
     std::string from_client = data_packet;
     buffer_messages.store_data(from_client);
@@ -119,17 +113,17 @@ int handle_client(const int heartbeat_connection, const int client_connection, b
     // separate from the main chat. Only server and that client
     // will see submitted commands and command interactions.
     check_command = message_parser(from_client);
-    if (check_command.size() > 2) {
+    if (check_command.size() > 1) {
       std::cout << std::endl;
-    
+
       if (check_command.at(1) == "!close") {
         std::string temp = check_command.at(0)+" has disconnected";
 
         buffer_messages.store_data(temp);
-        close(heartbeat_connection);
+        close(client.beat_connect());
         break;
       } else if (check_command.at(1)[0] == '!') {
-        command_menu(check_command, client_connection, username);
+        command_menu(check_command, client);
       }
 
       if (bytes_received > 0 && check_command[1] == "Client connected...") {
@@ -148,27 +142,21 @@ int handle_client(const int heartbeat_connection, const int client_connection, b
 
 
   }
-  shutdown(client_connection, SHUT_RDWR);
-  close(client_connection);
+  shutdown(client.connection(), SHUT_RDWR);
+  close(client.connection());
   return 0;
 
 }
 
 
-void new_client(int& client_connection, int& heartbeat_connection, buffer::History& buffer_messages) {
+void new_client(defined::ClientIdentity& client, buffer::History& buffer_messages) {
+    // Storing client object in global vector
+    G_CLIENTS.add_client(client);
+    std::cout << "-connection accepted from: client" << std::endl;
 
     // Handle client interactions with a multi_thread function
-    std::thread client_thread(handle_client,heartbeat_connection, client_connection, std::ref(buffer_messages));
+    std::thread client_thread(handle_client, std::ref(client), std::ref(buffer_messages));
     client_thread.detach();
-
-    // Handle heartbeats PING/PONG
-    std::thread heartbeat_thread(heart_beat_handler, heartbeat_connection, client_connection);
-    heartbeat_thread.detach();
-
-    G_CLIENTS.emplace_back(client_connection);
-    std::cout << "-connection accepted from: client" << std::endl;
-    G_HEARTBEAT_CLIENTS.emplace_back(heartbeat_connection);
-    std::cout << "-heartbeat established" << std::endl;
 }
 
 
@@ -236,13 +224,11 @@ int main() {
   struct sockaddr_in  client_address;
   socklen_t           client_address_length = sizeof(client_address);
   std::string         current_time;
-  buffer::History     buffer_messages;
   sending::Output     send_buffer;
-
-  std::thread([&](){ send_buffer.buffer_send(buffer_messages); }).detach();
+  std::shared_ptr<buffer::History> buffer_messages = std::make_shared<buffer::History>();
+  std::thread([&](){ send_buffer.buffer_send(*buffer_messages); }).detach();
 
   while(true) {
-
     server_time(current_time);
     std::cout << current_time << std::endl;
 
@@ -250,19 +236,16 @@ int main() {
     int client_connection = accept(server_fd, (struct sockaddr*)&client_address, &client_address_length);
     if (client_connection < 0) {
       std::cerr << "-error accepting client connection" << std::endl;
-      return -1;
     }
 
     // Initiating client_side heartbeat connection
     int heartbeat_connection = accept(heartbeat_fd, (struct sockaddr*)&client_address, &client_address_length);
     if (heartbeat_connection < 0) {
       std::cerr << "-error accepting heartbeat connection" << std::endl;
-      return -1;
     }
 
-    new_client(client_connection, heartbeat_connection, buffer_messages);
-
-
+    defined::ClientIdentity client(current_time, client_connection, heartbeat_connection);
+    new_client(client, *buffer_messages);
   }
   std::cout << "-server disconnected" << std::endl;
   sleep(1);

@@ -1,11 +1,14 @@
 #ifndef SERVER_OUTPUT_HPP
-#define SERVER_OUTPUT_HPP
 
 #include <iostream>
 #include <string>
 #include <netinet/in.h>
 
 #include "buffer_history.hpp"
+#include "client_collection.hpp"
+
+#define SERVER_OUTPUT_HPP
+
 
 namespace sending {
   class Output {
@@ -19,12 +22,12 @@ namespace sending {
         if (buffer_messages.queue_size() > 0) {
           data_packet = buffer_messages.get_data();
           uint32_t size = data_packet.length();
-          for (int client_connection : G_CLIENTS) {
+          for (auto& client : G_CLIENTS.get_clients()) {
             bytes_sent = 0;
             size = htonl(size);
-            send(client_connection, &size, sizeof(size), 0);
+            send(client.connection(), &size, sizeof(size), 0);
             size = ntohl(size);
-            bytes_sent = send(client_connection, data_packet.c_str(), data_packet.length(), 0);
+            bytes_sent = send(client.connection(), data_packet.c_str(), data_packet.length(), 0);
             if (bytes_sent < 0) {
               std::cerr << "-error sending data: " << data_packet << std::endl;
             }
